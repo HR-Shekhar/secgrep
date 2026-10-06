@@ -1,0 +1,15 @@
+# Default project config.
+# testdata holds planted flaws for explicit scans (`secgrep scan testdata/corpus`).
+# prompt.md / build_plan.md may discuss example keys — keep them out of CI tree scans.
+ignore_paths = [
+  "testdata",
+  "tests",
+  "target",
+  ".git",
+  "node_modules",
+  "prompt.md",
+  "build_plan.md",
+  "docs",
+]
+min_confidence = 0.65
+format = "text"

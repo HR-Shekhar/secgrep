@@ -308,4 +308,4 @@ Rules that keep this finite:
 
 ## Current pointer
 
-**Next:** Step 1.1 — add `clap` as a dependency. Nothing else.
+**Status:** Parts 0–7 implemented for submission. Commands, scoring, history, hooks, Action, docs, and tests are in place.
