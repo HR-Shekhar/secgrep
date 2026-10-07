@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: build-${{ matrix.asset_name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            bin_name: secgrep
+            asset_name: secgrep-linux-x86_64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            bin_name: secgrep
+            asset_name: secgrep-darwin-x86_64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            bin_name: secgrep
+            asset_name: secgrep-darwin-arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin_name: secgrep.exe
+            asset_name: secgrep-windows-x86_64.exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Rename binary for release asset
+        shell: bash
+        run: |
+          src="target/${{ matrix.target }}/release/${{ matrix.bin_name }}"
+          dst="${{ matrix.asset_name }}"
+          cp "$src" "$dst"
+          ls -la "$dst"
+
+      - name: Upload to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.asset_name }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

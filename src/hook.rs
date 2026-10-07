@@ -77,10 +77,10 @@ fn set_executable(_path: &Path) -> Result<(), Error> {
 
 pub fn commit(message: Option<&str>, extra: &[String], cfg: &Config) -> Result<i32, Error> {
     let cwd = std::env::current_dir()?;
-    let findings = engine::scan_staged(&cwd, cfg)?;
-    let report = Report::from_findings(findings, cfg.min_confidence);
+    let (findings, stats) = engine::scan_staged(&cwd, cfg)?;
+    let report = Report::from_findings_with_stats(findings, cfg.min_confidence, Some(stats));
     let rendered = report
-        .render(cfg.format, cfg.min_confidence)
+        .render(cfg.format, cfg.min_confidence, false)
         .map_err(|_| Error::new("failed to render report"))?;
     if report.blocked_count > 0 {
         print!("{rendered}");

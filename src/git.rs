@@ -47,6 +47,16 @@ pub struct NamedBlob {
     pub text: String,
 }
 
+fn path_ignored(path: &str, cfg: &Config) -> bool {
+    let normalized = path.replace('\\', "/");
+    cfg.ignore_paths.iter().any(|p| {
+        normalized == *p
+            || normalized.starts_with(&format!("{p}/"))
+            || normalized.contains(&format!("/{p}/"))
+            || normalized.ends_with(&format!("/{p}"))
+    })
+}
+
 pub fn staged_blobs(repo: &Path, cfg: &Config) -> Result<Vec<NamedBlob>, Error> {
     let stdout = git(
         repo,
@@ -61,7 +71,7 @@ pub fn staged_blobs(repo: &Path, cfg: &Config) -> Result<Vec<NamedBlob>, Error> 
     let names = split_z(&stdout);
     let mut blobs = Vec::new();
     for name in names {
-        if name.is_empty() {
+        if name.is_empty() || path_ignored(&name, cfg) {
             continue;
         }
         let spec = format!(":{name}");
@@ -93,7 +103,7 @@ pub fn diff_blobs(repo: &Path, range: &str, cfg: &Config) -> Result<Vec<NamedBlo
     let names = split_z(&stdout);
     let mut blobs = Vec::new();
     for name in names {
-        if name.is_empty() {
+        if name.is_empty() || path_ignored(&name, cfg) {
             continue;
         }
         let spec = format!("{to}:{name}");
@@ -120,18 +130,22 @@ pub fn parse_range(range: &str) -> Result<(String, String), Error> {
     Ok((from.to_string(), to.to_string()))
 }
 
-pub fn log_patch(repo: &Path) -> Result<String, Error> {
-    let bytes = git(
-        repo,
-        &[
-            "log",
-            "--reverse",
-            "--all",
-            "--pretty=format:COMMIT:%H",
-            "--patch",
-            "--unified=0",
-        ],
-    )?;
+pub fn log_patch(repo: &Path, since_commit: Option<&str>) -> Result<String, Error> {
+    let mut args: Vec<String> = vec![
+        "log".into(),
+        "--reverse".into(),
+        "--pretty=format:COMMIT:%H".into(),
+        "--patch".into(),
+        "--unified=0".into(),
+    ];
+    if let Some(since) = since_commit {
+        // Incremental: only commits after this SHA (much faster on large repos).
+        args.push(format!("{since}..HEAD"));
+    } else {
+        args.insert(2, "--all".into());
+    }
+    let str_args: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    let bytes = git(repo, &str_args)?;
     Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 

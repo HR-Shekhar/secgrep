@@ -16,6 +16,7 @@ const DEFAULT_MAX_FILE_BYTES: u64 = 1_048_576;
 pub enum OutputFormat {
     Text,
     Json,
+    Sarif,
 }
 
 impl OutputFormat {
@@ -23,8 +24,9 @@ impl OutputFormat {
         match s {
             "text" => Ok(Self::Text),
             "json" => Ok(Self::Json),
+            "sarif" => Ok(Self::Sarif),
             other => Err(Error::new(format!(
-                "unknown format '{other}' (use text or json)"
+                "unknown format '{other}' (use text, json, or sarif)"
             ))),
         }
     }
@@ -100,11 +102,7 @@ impl Config {
                 .map_err(|_| Error::new("malformed secgrep.toml (check keys and types)"))?;
             apply_file(&mut cfg, parsed)?;
         }
-        if cfg.verify {
-            return Err(Error::new(
-                "verify=true is refused in this build: live provider validation is off by design",
-            ));
-        }
+        // verify may be enabled via config or --verify. Default remains false.
         Ok(cfg)
     }
 }

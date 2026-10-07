@@ -48,7 +48,7 @@ fn history_shows_rotate_after_delete() {
     cmd.current_dir(root).args(["history", "."]);
     cmd.assert()
         .success()
-        .stdout(predicate::str::contains("Historical exposure"))
+        .stdout(predicate::str::contains("historical:"))
         .stdout(predicate::str::contains("YES"))
         .stdout(predicate::str::contains("not present"))
         .stdout(predicate::str::contains("ROTATE"))

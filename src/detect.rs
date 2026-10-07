@@ -28,6 +28,16 @@ pub fn builtin_rules() -> Vec<Rule> {
             false,
         ),
         rule(
+            "aws-secret-access-key",
+            Category::ApiKey,
+            Severity::Critical,
+            r#"(?i)(?:aws_?secret_?access_?key|secret_?access_?key)\s*[=:]\s*['"]([A-Za-z0-9/+=]{40})['"]"#,
+            1,
+            0.85,
+            "AWS secret access key assignment",
+            false,
+        ),
+        rule(
             "github-pat",
             Category::AccessToken,
             Severity::Critical,
@@ -48,6 +58,16 @@ pub fn builtin_rules() -> Vec<Rule> {
             false,
         ),
         rule(
+            "github-oauth",
+            Category::AccessToken,
+            Severity::Critical,
+            r"\b(gho_[A-Za-z0-9]{36})\b",
+            1,
+            0.9,
+            "GitHub OAuth access token",
+            false,
+        ),
+        rule(
             "slack-token",
             Category::AccessToken,
             Severity::High,
@@ -55,6 +75,66 @@ pub fn builtin_rules() -> Vec<Rule> {
             1,
             0.85,
             "Slack token",
+            false,
+        ),
+        rule(
+            "stripe-secret",
+            Category::ApiKey,
+            Severity::Critical,
+            r"\b(sk_(?:live|test)_[A-Za-z0-9]{20,})\b",
+            1,
+            0.9,
+            "Stripe secret key",
+            false,
+        ),
+        rule(
+            "openai-api-key",
+            Category::ApiKey,
+            Severity::Critical,
+            r"\b(sk-[A-Za-z0-9]{20,})\b",
+            1,
+            0.85,
+            "OpenAI-style API key",
+            false,
+        ),
+        rule(
+            "google-api-key",
+            Category::ApiKey,
+            Severity::High,
+            r"\b(AIza[0-9A-Za-z_-]{35})\b",
+            1,
+            0.85,
+            "Google API key (AIza...)",
+            false,
+        ),
+        rule(
+            "twilio-sid",
+            Category::ApiKey,
+            Severity::High,
+            r"\b(SK[0-9a-fA-F]{32})\b",
+            1,
+            0.8,
+            "Twilio API key SID",
+            false,
+        ),
+        rule(
+            "sendgrid-key",
+            Category::ApiKey,
+            Severity::High,
+            r"\b(SG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,})\b",
+            1,
+            0.85,
+            "SendGrid API key",
+            false,
+        ),
+        rule(
+            "npm-token",
+            Category::AccessToken,
+            Severity::High,
+            r"\b(npm_[A-Za-z0-9]{36})\b",
+            1,
+            0.85,
+            "npm access token",
             false,
         ),
         rule(
@@ -165,6 +245,19 @@ pub fn active_rules(ignore_rules: &[String], custom: &[Rule]) -> Vec<Rule> {
     rules
 }
 
+pub fn list_rule_summaries(ignore_rules: &[String], custom: &[Rule]) -> Vec<(String, String, String)> {
+    active_rules(ignore_rules, custom)
+        .into_iter()
+        .map(|r| {
+            (
+                r.id,
+                r.severity.as_str().to_string(),
+                r.description,
+            )
+        })
+        .collect()
+}
+
 impl Rule {
     fn clone_rule(&self) -> Rule {
         Rule {
@@ -255,11 +348,34 @@ mod tests {
     #[test]
     fn detects_aws_access_key() {
         let rules = builtin_rules();
-        // Split so the repo source itself does not contain a contiguous fake key.
         let key = format!("AKIA{}", "D7K3M2P9Q1W8X4YZ");
         let content = format!(r#"key = "{key}""#);
         let hits = find_candidates("a.py", &content, &rules);
         assert!(hits.iter().any(|h| h.rule_id == "aws-access-key"));
+    }
+
+    #[test]
+    fn detects_stripe_and_openai_shapes() {
+        let rules = builtin_rules();
+        let stripe = format!("sk_test_{}", "51AbCdEfGhIjKlMnOpQrStUv");
+        let openai = format!("sk-{}", "abcdefghijklmnopqrstuvwxyz12");
+        let content = format!("STRIPE={stripe}\nOPENAI={openai}\n");
+        let hits = find_candidates("cfg.env", &content, &rules);
+        assert!(hits.iter().any(|h| h.rule_id == "stripe-secret"));
+        assert!(hits.iter().any(|h| h.rule_id == "openai-api-key"));
+    }
+
+    #[test]
+    fn detects_twilio_and_slack_shapes() {
+        // Constructed at runtime so the source tree does not contain partner-shaped
+        // literals that GitHub Push Protection would reject on push.
+        let rules = builtin_rules();
+        let twilio = format!("SK{}", "0123456789abcdef0123456789abcdef");
+        let slack = format!("xoxb-{}-{}", "123456789012", "ABCDEFGHijklmno");
+        let content = format!("TWILIO={twilio}\nSLACK={slack}\n");
+        let hits = find_candidates("cfg.env", &content, &rules);
+        assert!(hits.iter().any(|h| h.rule_id == "twilio-sid"));
+        assert!(hits.iter().any(|h| h.rule_id == "slack-token"));
     }
 
     #[test]

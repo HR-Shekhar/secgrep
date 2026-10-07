@@ -2,13 +2,23 @@
 
 Never use real production credentials.
 
-## 1. Build
+## 1. Get a binary
+
+**From a public release (Mac/Linux):**
+
+```bash
+curl -sSL https://raw.githubusercontent.com/HR-Shekhar/secgrep/main/install.sh | bash
+```
+
+**Or build from source:**
 
 ```bash
 cargo build --release
 ```
 
-Windows: use `target\release\secgrep.exe` instead of `./target/release/secgrep`.
+Windows: download `secgrep-windows-x86_64.exe` from [Releases](https://github.com/HR-Shekhar/secgrep/releases/latest), or use `target\release\secgrep.exe` after building.
+
+Maintainer release steps: [release.md](release.md).
 
 ## 2. Scan planted flaws
 

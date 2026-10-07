@@ -36,9 +36,13 @@ struct Acc {
     files: Vec<String>,
 }
 
-pub fn scan_history(path: &Path, cfg: &Config) -> Result<(Vec<HistoryEntry>, Vec<Finding>), Error> {
+pub fn scan_history(
+    path: &Path,
+    cfg: &Config,
+    since_commit: Option<&str>,
+) -> Result<(Vec<HistoryEntry>, Vec<Finding>), Error> {
     let repo = git::repo_root(path)?;
-    let patch = git::log_patch(&repo)?;
+    let patch = git::log_patch(&repo, since_commit)?;
     let mut by_fp: HashMap<String, Acc> = HashMap::new();
 
     let mut commit = String::new();
@@ -83,7 +87,7 @@ pub fn scan_history(path: &Path, cfg: &Config) -> Result<(Vec<HistoryEntry>, Vec
         }
     }
 
-    let current = engine::scan_path(path, cfg)?;
+    let (current, _) = engine::scan_path(path, cfg)?;
     let current_fps: Vec<String> = current.iter().map(|f| f.fingerprint.clone()).collect();
 
     let mut entries: Vec<HistoryEntry> = by_fp
@@ -153,40 +157,37 @@ impl HistoryReport {
 
 pub fn render_text(report: &HistoryReport) -> String {
     let mut out = String::new();
+    out.push_str("╔══════════════════════════════════════╗\n");
+    out.push_str("║     secgrep history · rotate check   ║\n");
+    out.push_str("╚══════════════════════════════════════╝\n");
+    out.push_str(&format!(
+        "Status: {} · historical: {} · current findings: {}\n\n",
+        report.status, report.historical_count, report.current_finding_count
+    ));
     if report.entries.is_empty() && report.current_findings.is_empty() {
-        out.push_str("No historical or current secret candidates found.\n");
+        out.push_str("✓ No historical or current secret candidates found.\n");
         return out;
     }
-    for e in &report.entries {
-        out.push_str(&format!("Secret:\n{}\n", e.category));
-        out.push_str(&format!("rule: {}\n", e.rule_id));
-        out.push_str(&format!("preview: {}\n", e.redacted_preview));
-        out.push_str(&format!("First seen:\ncommit {}\n", e.first_seen));
+    for (i, e) in report.entries.iter().enumerate() {
+        out.push_str(&format!("── history #{} ───────────────────────\n", i + 1));
+        out.push_str(&format!("  {} ({})\n", e.category, e.rule_id));
+        out.push_str(&format!("  preview: {}\n", e.redacted_preview));
+        out.push_str(&format!("  first seen:  {}\n", e.first_seen));
+        out.push_str(&format!("  last seen:   {}\n", e.last_seen));
+        out.push_str(&format!("  commits:     {}\n", e.commit_count));
+        out.push_str(&format!("  current tree: {}\n", e.current_tree));
         out.push_str(&format!(
-            "Last seen (in a diff):\ncommit {}\n",
-            e.last_seen
-        ));
-        out.push_str(&format!("Appeared in {} commit(s)\n", e.commit_count));
-        out.push_str(&format!("Current tree:\n{}\n", e.current_tree));
-        out.push_str(&format!(
-            "Historical exposure:\n{}\n",
+            "  historical:  {}\n",
             e.historical_exposure
         ));
-        out.push_str(&format!(
-            "Recommended action:\n{}\n",
-            e.recommended_action
-        ));
-        for step in &e.remediation {
-            out.push_str(&format!("  - {step}\n"));
-        }
-        out.push('\n');
+        out.push_str(&format!("  → {}\n\n", e.recommended_action));
     }
     if !report.current_findings.is_empty() {
-        out.push_str("--- current tree ---\n");
+        out.push_str("── current tree ───────────────────────\n");
         let current = Report::from_findings(report.current_findings.clone(), 0.65);
         out.push_str(
             &current
-                .render(OutputFormat::Text, 0.65)
+                .render(OutputFormat::Text, 0.65, false)
                 .unwrap_or_default(),
         );
     }

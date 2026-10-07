@@ -39,6 +39,12 @@ Git hooks / GitHub Actions
 
 - Findings never store a `raw` secret field for output
 - JSON and text use `redacted_preview` only
-- `verify=true` in config is refused (no live API calls)
+- Live provider checks run only with explicit `--verify` (default off)
 - Symlinks are not followed
 - Huge files and binaries are skipped
+
+## Distribution
+
+Public binaries are built by GitHub Actions on version tags (`v*`), not on developer laptops.
+
+See [release.md](release.md), [`install.sh`](../install.sh), and [`.github/workflows/release.yml`](../.github/workflows/release.yml).
